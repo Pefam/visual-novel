@@ -95,7 +95,7 @@ const GameScene = () => {
           className="relative h-full mx-auto bg-black/20"
           style={{
             aspectRatio: '3/4',
-            minWidth: MIN_CONTAINER_WIDTH,
+            //minWidth: MIN_CONTAINER_WIDTH,
             maxWidth: 'min(90vw, 1200px)'
           }}
         >
@@ -116,7 +116,7 @@ const GameScene = () => {
             className="absolute bottom-0 left-1/2 origin-bottom"
             style={{
               width: `${CHARACTER_SIZE_PERCENTAGE}%`,
-              minWidth: `${(MIN_CONTAINER_WIDTH * CHARACTER_SIZE_PERCENTAGE) / 100}px`,
+              //minWidth: `${(MIN_CONTAINER_WIDTH * CHARACTER_SIZE_PERCENTAGE) / 100}px`,
               height: '85%',
               transform: `translateX(calc(-50% + ${CHARACTER_OFFSET.x}px)) translateY(${CHARACTER_OFFSET.y}px)`
             }}
