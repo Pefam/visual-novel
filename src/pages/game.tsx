@@ -1,10 +1,12 @@
+// pages/game.tsx
+import { ChoiceProvider } from '../context/ChoiceContext';
 import GameScene from '../components/GameScene';
 
 const GamePage = () => {
   return (
-    <main>
+    <ChoiceProvider>
       <GameScene />
-    </main>
+    </ChoiceProvider>
   );
 };
 
