@@ -51,7 +51,7 @@ const GameScene = () => {
     setIsAnimating(false);
   }, []);
 
-  const determineEnding = (choices: ChoiceType[]): string => {
+  const determineEnding = (choices: ChoiceType[]): { text: string, number: number } => {
     const choiceIds = choices.map(c => c.id);
     //console.log('[DEBUG] All choice IDs:', choiceIds);
     
@@ -61,7 +61,7 @@ const GameScene = () => {
       choiceIds.includes('2A') && 
       choiceIds.includes('3A');
     //console.log('[DEBUG] Ending 1 check (1A-2A-3A):', ending1Condition);
-    if (ending1Condition) return "I guess you should go now.";
+    if (ending1Condition) return { text: "I guess you should go now.", number:1};
   
     // Ending 5: 1C-2C-3C
     const ending5Condition = 
@@ -69,7 +69,7 @@ const GameScene = () => {
       choiceIds.includes('2C') && 
       choiceIds.includes('3C');
     //console.log('[DEBUG] Ending 5 check (1C-2C-3C):', ending5Condition);
-    if (ending5Condition) return "Sometimes I feel like I'm invisible at home... like they wouldn't even notice if I disappeared.";
+    if (ending5Condition) return { text: "Sometimes I feel like I'm invisible at home... like they wouldn't even notice if I disappeared.", number:5};
   
     // Ending 2: (1A|1B) + (2A|2B) + (3A|3B) but not 1A-2A-3A
     const ending2Base = 
@@ -84,7 +84,7 @@ const GameScene = () => {
       'Exclusion:', ending2Exclusion,
       'Total:', ending2Condition
     );*/
-    if (ending2Condition) return "Yeah, it never changes.";
+    if (ending2Condition) return { text: "Yeah, it never changes.", number:2};
   
     // Ending 4: (1B|1C) + (2B|2C) + (3B|3C) but not 1C-2C-3C
     const ending4Base = 
@@ -99,11 +99,11 @@ const GameScene = () => {
       'Exclusion:', ending4Exclusion,
       'Total:', ending4Condition
     );*/
-    if (ending4Condition) return "Thanks... no one ever really listens.";
+    if (ending4Condition) return { text: "Thanks... no one ever really listens.", number:4};
   
     // Ending 3: Default
     //console.log('[DEBUG] No specific ending matched, falling back to Ending 3');
-    return "Well, I guess that's it, then.";
+    return { text: "Well, I guess that's it, then.", number:3};
   };
 
 const handleChoiceSelection = (
@@ -121,11 +121,10 @@ const handleChoiceSelection = (
 
   if (nextScene.isEnding) {
     // Use the temporary updated choices array
-    const finalText = determineEnding(updatedChoices);
-    //console.log('[FIX] Final choices for ending:', updatedChoices);
-    setEndingText(finalText);
+    const final = determineEnding(updatedChoices);
+    setEndingText(final.text);
     setPhase('ending');
-    setCurrentPose('/images/characters/tessa/ending.png');
+    setCurrentPose(`/images/characters/tessa/ending${final.number}.png`);
   } else {
     setCurrentChoiceScene(nextScene);
     setCurrentPose(nextScene.pose);

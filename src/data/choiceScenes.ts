@@ -9,6 +9,7 @@ export interface ChoiceScene {
       nextSceneId: string;
     }[];
     isEnding?: boolean;
+    endingNumber?: number;
   }
   
   export const choiceScenes: { [key: string]: ChoiceScene } = {
