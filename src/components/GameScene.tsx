@@ -53,14 +53,14 @@ const GameScene = () => {
 
   const determineEnding = (choices: ChoiceType[]): string => {
     const choiceIds = choices.map(c => c.id);
-    console.log('[DEBUG] All choice IDs:', choiceIds);
+    //console.log('[DEBUG] All choice IDs:', choiceIds);
     
     // Ending 1: 1A-2A-3A
     const ending1Condition = 
       choiceIds.includes('1A') && 
       choiceIds.includes('2A') && 
       choiceIds.includes('3A');
-    console.log('[DEBUG] Ending 1 check (1A-2A-3A):', ending1Condition);
+    //console.log('[DEBUG] Ending 1 check (1A-2A-3A):', ending1Condition);
     if (ending1Condition) return "I guess you should go now.";
   
     // Ending 5: 1C-2C-3C
@@ -68,7 +68,7 @@ const GameScene = () => {
       choiceIds.includes('1C') && 
       choiceIds.includes('2C') && 
       choiceIds.includes('3C');
-    console.log('[DEBUG] Ending 5 check (1C-2C-3C):', ending5Condition);
+    //console.log('[DEBUG] Ending 5 check (1C-2C-3C):', ending5Condition);
     if (ending5Condition) return "Sometimes I feel like I'm invisible at home... like they wouldn't even notice if I disappeared.";
   
     // Ending 2: (1A|1B) + (2A|2B) + (3A|3B) but not 1A-2A-3A
@@ -79,11 +79,11 @@ const GameScene = () => {
     const ending2Exclusion = 
       !(choiceIds.includes('1A') && choiceIds.includes('2A') && choiceIds.includes('3A'));
     const ending2Condition = ending2Base && ending2Exclusion;
-    console.log(
+    /*console.log(
       '[DEBUG] Ending 2 check - Base:', ending2Base,
       'Exclusion:', ending2Exclusion,
       'Total:', ending2Condition
-    );
+    );*/
     if (ending2Condition) return "Yeah, it never changes.";
   
     // Ending 4: (1B|1C) + (2B|2C) + (3B|3C) but not 1C-2C-3C
@@ -94,15 +94,15 @@ const GameScene = () => {
     const ending4Exclusion = 
       !(choiceIds.includes('1C') && choiceIds.includes('2C') && choiceIds.includes('3C'));
     const ending4Condition = ending4Base && ending4Exclusion;
-    console.log(
+    /*console.log(
       '[DEBUG] Ending 4 check - Base:', ending4Base,
       'Exclusion:', ending4Exclusion,
       'Total:', ending4Condition
-    );
+    );*/
     if (ending4Condition) return "Thanks... no one ever really listens.";
   
     // Ending 3: Default
-    console.log('[DEBUG] No specific ending matched, falling back to Ending 3');
+    //console.log('[DEBUG] No specific ending matched, falling back to Ending 3');
     return "Well, I guess that's it, then.";
   };
 
@@ -122,7 +122,7 @@ const handleChoiceSelection = (
   if (nextScene.isEnding) {
     // Use the temporary updated choices array
     const finalText = determineEnding(updatedChoices);
-    console.log('[FIX] Final choices for ending:', updatedChoices);
+    //console.log('[FIX] Final choices for ending:', updatedChoices);
     setEndingText(finalText);
     setPhase('ending');
     setCurrentPose('/images/characters/tessa/ending.png');
