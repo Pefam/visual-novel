@@ -53,55 +53,84 @@ const GameScene = () => {
 
   const determineEnding = (choices: ChoiceType[]): string => {
     const choiceIds = choices.map(c => c.id);
-
+    console.log('[DEBUG] All choice IDs:', choiceIds);
+    
     // Ending 1: 1A-2A-3A
-    if (choiceIds.includes('1A') && choiceIds.includes('2A') && choiceIds.includes('3A')) {
-      return "I guess you should go now.";
-    }
-    
+    const ending1Condition = 
+      choiceIds.includes('1A') && 
+      choiceIds.includes('2A') && 
+      choiceIds.includes('3A');
+    console.log('[DEBUG] Ending 1 check (1A-2A-3A):', ending1Condition);
+    if (ending1Condition) return "I guess you should go now.";
+  
     // Ending 5: 1C-2C-3C
-    if (choiceIds.includes('1C') && choiceIds.includes('2C') && choiceIds.includes('3C')) {
-      return "Sometimes I feel like I'm invisible at home... like they wouldn't even notice if I disappeared.";
-    }
-    
-    // Ending 2
-    const ending2Condition = (
+    const ending5Condition = 
+      choiceIds.includes('1C') && 
+      choiceIds.includes('2C') && 
+      choiceIds.includes('3C');
+    console.log('[DEBUG] Ending 5 check (1C-2C-3C):', ending5Condition);
+    if (ending5Condition) return "Sometimes I feel like I'm invisible at home... like they wouldn't even notice if I disappeared.";
+  
+    // Ending 2: (1A|1B) + (2A|2B) + (3A|3B) but not 1A-2A-3A
+    const ending2Base = 
       (choiceIds.includes('1A') || choiceIds.includes('1B')) &&
       (choiceIds.includes('2A') || choiceIds.includes('2B')) &&
-      (choiceIds.includes('3A') || choiceIds.includes('3B')) &&
-      !(choiceIds.includes('1A') && choiceIds.includes('2A') && choiceIds.includes('3A'))
+      (choiceIds.includes('3A') || choiceIds.includes('3B'));
+    const ending2Exclusion = 
+      !(choiceIds.includes('1A') && choiceIds.includes('2A') && choiceIds.includes('3A'));
+    const ending2Condition = ending2Base && ending2Exclusion;
+    console.log(
+      '[DEBUG] Ending 2 check - Base:', ending2Base,
+      'Exclusion:', ending2Exclusion,
+      'Total:', ending2Condition
     );
     if (ending2Condition) return "Yeah, it never changes.";
-    
-    // Ending 4
-    const ending4Condition = (
+  
+    // Ending 4: (1B|1C) + (2B|2C) + (3B|3C) but not 1C-2C-3C
+    const ending4Base = 
       (choiceIds.includes('1B') || choiceIds.includes('1C')) &&
       (choiceIds.includes('2B') || choiceIds.includes('2C')) &&
-      (choiceIds.includes('3B') || choiceIds.includes('3C')) &&
-      !(choiceIds.includes('1C') && choiceIds.includes('2C') && choiceIds.includes('3C'))
+      (choiceIds.includes('3B') || choiceIds.includes('3C'));
+    const ending4Exclusion = 
+      !(choiceIds.includes('1C') && choiceIds.includes('2C') && choiceIds.includes('3C'));
+    const ending4Condition = ending4Base && ending4Exclusion;
+    console.log(
+      '[DEBUG] Ending 4 check - Base:', ending4Base,
+      'Exclusion:', ending4Exclusion,
+      'Total:', ending4Condition
     );
     if (ending4Condition) return "Thanks... no one ever really listens.";
-
+  
     // Ending 3: Default
+    console.log('[DEBUG] No specific ending matched, falling back to Ending 3');
     return "Well, I guess that's it, then.";
   };
 
-  const handleChoiceSelection = (choice: { id: string; type: 'A' | 'B' | 'C' }, nextSceneId: string) => {
-    addChoice({ id: choice.id, type: choice.type });
-    
-    const nextScene = choiceScenes[nextSceneId];
-    if (!nextScene) return;
+const handleChoiceSelection = (
+  choice: { id: string; type: 'A' | 'B' | 'C' }, 
+  nextSceneId: string
+) => {
+  // Create temporary updated choices array
+  const updatedChoices = [...choices, { id: choice.id, type: choice.type }];
+  
+  // Update context state
+  addChoice({ id: choice.id, type: choice.type });
 
-    if (nextScene.isEnding) {
-      const finalText = determineEnding(choices);
-      setEndingText(finalText);
-      setPhase('ending');
-      setCurrentPose('/images/characters/tessa/ending.png');
-    } else {
-      setCurrentChoiceScene(nextScene);
-      setCurrentPose(nextScene.pose);
-    }
-  };
+  const nextScene = choiceScenes[nextSceneId];
+  if (!nextScene) return;
+
+  if (nextScene.isEnding) {
+    // Use the temporary updated choices array
+    const finalText = determineEnding(updatedChoices);
+    console.log('[FIX] Final choices for ending:', updatedChoices);
+    setEndingText(finalText);
+    setPhase('ending');
+    setCurrentPose('/images/characters/tessa/ending.png');
+  } else {
+    setCurrentChoiceScene(nextScene);
+    setCurrentPose(nextScene.pose);
+  }
+};
 
   useEffect(() => {
     let isMounted = true;
