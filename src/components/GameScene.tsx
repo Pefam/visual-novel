@@ -6,8 +6,12 @@ import { choiceScenes } from '../data/choiceScenes';
 import { useChoices, type ChoiceType } from '../context/ChoiceContext';
 
 const MIN_IMAGE_HEIGHT = 300;
-const MIN_TEXT_HEIGHT = 200;
 const INITIAL_BACKGROUND = '/images/scenes/plain-bg.png';
+const KNOCK_SOUNDS = [
+  '/sounds/knock1.mp3',
+  '/sounds/knock2.mp3',
+  '/sounds/door-open.mp3'
+];
 
 type ChoiceScene = typeof choiceScenes[keyof typeof choiceScenes];
 
@@ -22,23 +26,12 @@ const GameScene = () => {
   const [currentChoiceScene, setCurrentChoiceScene] = useState<ChoiceScene>(choiceScenes.firstChoice);
   const [endingText, setEndingText] = useState('');
 
-  useEffect(() => {
-    const preloadImages = [
-      INITIAL_BACKGROUND,
-      ...introSequence.map(scene => scene.scene),
-      ...Object.values(choiceScenes)
-        .filter(scene => !scene.isEnding)
-        .map(scene => scene.scene),
-      ...Array.from({ length: 5 }, (_, i) => `/images/scenes/ending${i + 1}.png`)
-    ];
-
-    preloadImages.forEach(src => {
-      const img = document.createElement('img');
-      img.src = src;
-    });
+  const playSound = useCallback((soundIndex: number) => {
+    const audio = new Audio(KNOCK_SOUNDS[soundIndex]);
+    audio.play();
   }, []);
 
-  const animateText = useCallback(async (text: string, setText: React.Dispatch<React.SetStateAction<string>>) => {
+  const animateText = useCallback(async (text: string, setText: React.Dispatch<React.SetStateAction<string>>, delay = 100) => {
     setIsAnimating(true);
     const words = text.split(' ');
     let current = '';
@@ -46,7 +39,7 @@ const GameScene = () => {
     for (const word of words) {
       current += (current ? ' ' : '') + word;
       setText(current);
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
     setIsAnimating(false);
   }, []);
@@ -95,12 +88,62 @@ const GameScene = () => {
     }
   };
 
+  const waitForContinue = () => new Promise<void>(resolve => {
+    const handler = (e: KeyboardEvent | MouseEvent) => {
+      if (e instanceof KeyboardEvent && e.code !== 'Space') return;
+      window.removeEventListener('click', handler);
+      window.removeEventListener('keydown', handler);
+      resolve();
+    };
+    window.addEventListener('click', handler);
+    window.addEventListener('keydown', handler);
+  });
+
   useEffect(() => {
     let isMounted = true;
     
     const runSequence = async () => {
+      // Initial knock sequence
       if (currentStep === 0) {
-        const waitForStart = () => new Promise<void>(resolve => {
+        // First knock
+        playSound(0);
+        await animateText("Knock, knock knock...", setPlayerText, 50);
+        
+        // Wait for user to continue
+        await waitForContinue();
+        setPlayerText('');
+    
+        // Second knock
+        playSound(1);
+        await animateText("Knock, knock knock...", setPlayerText, 50);
+        
+        // Wait for user to continue
+        await waitForContinue();
+        setPlayerText('');
+    
+        // Door opening
+        playSound(2);
+        await animateText("*Door opens*", setPlayerText, 50);
+        
+        // Wait for user to continue
+        await waitForContinue();
+        setPlayerText('');
+        
+        // Transition to first scene
+        setCurrentScene(introSequence[0].scene);
+        setCurrentStep(1);
+      }
+
+      // Main dialogue sequence
+      if (currentStep > 0) {
+        const sceneIndex = currentStep - 1;
+        const scene = introSequence[sceneIndex];
+
+        // Animate player text
+        await animateText(scene.playerText, setPlayerText);
+        
+        // Wait for user to continue
+        const waitForContinue = () => new Promise<void>(resolve => {
           const handler = (e: KeyboardEvent | MouseEvent) => {
             if (e instanceof KeyboardEvent && e.code !== 'Space') return;
             window.removeEventListener('click', handler);
@@ -111,43 +154,23 @@ const GameScene = () => {
           window.addEventListener('keydown', handler);
         });
         
-        await waitForStart();
-        setCurrentScene(introSequence[0].scene);
-      }
-
-      if (currentStep > 0) {
-        setPlayerText('');
-        setTessaText('');
-      }
-      
-      await animateText(introSequence[currentStep].playerText, setPlayerText);
-      
-      const waitForContinue = () => new Promise<void>(resolve => {
-        const handler = (e: KeyboardEvent | MouseEvent) => {
-          if (e instanceof KeyboardEvent && e.code !== 'Space') return;
-          window.removeEventListener('click', handler);
-          window.removeEventListener('keydown', handler);
-          resolve();
-        };
-        window.addEventListener('click', handler);
-        window.addEventListener('keydown', handler);
-      });
-      
-      await waitForContinue();
-      
-      if (!isMounted) return;
-      
-      setCurrentScene(introSequence[currentStep].scene);
-      await animateText(introSequence[currentStep].tessaText, setTessaText);
-      
-      await waitForContinue();
-      
-      if (isMounted) {
-        if (currentStep < introSequence.length - 1) {
-          setCurrentStep(prev => prev + 1);
-        } else {
-          setPhase('choices');
-          setCurrentScene(choiceScenes.firstChoice.scene);
+        await waitForContinue();
+        
+        if (!isMounted) return;
+        
+        // Update scene and animate Tessa's response
+        setCurrentScene(scene.scene);
+        await animateText(scene.tessaText, setTessaText);
+        
+        await waitForContinue();
+        
+        if (isMounted) {
+          if (currentStep < introSequence.length) {
+            setCurrentStep(prev => prev + 1);
+          } else {
+            setPhase('choices');
+            setCurrentScene(choiceScenes.firstChoice.scene);
+          }
         }
       }
     };
@@ -157,31 +180,34 @@ const GameScene = () => {
   }, [currentStep]);
 
   return (
-    <div className="relative h-screen w-full flex flex-col">
-    {/* Image Container */}
-    <div className="relative w-full flex-1 min-h-[300px]">
-      <div className="relative h-full max-w-4xl mx-auto">
-        <Image
-          src={currentScene}
-          alt="Scene"
-          layout="fill"
-          objectFit="contain"
-          className="object-center"
-          priority
-        />
+    <div className="relative h-screen w-full flex flex-col bg-gray-900">
+      {/* Image Container */}
+      <div className="relative w-full flex-1 min-h-[300px]">
+        <div className="relative h-full max-w-4xl mx-auto">
+          <Image
+            src={currentScene}
+            alt="Scene"
+            layout="fill"
+            objectFit="contain"
+            className="object-center transition-opacity duration-500"
+            priority
+          />
+        </div>
       </div>
-    </div>
 
-    <div className="bg-black/80 p-4 overflow-y-auto flex-shrink-0 min-h-[200px]">
+      {/* Text Container */}
+      <div className="bg-black/80 p-4 overflow-y-auto flex-shrink-0 min-h-[200px]">
         <div className="max-w-2xl mx-auto space-y-2">
           {phase === 'intro' ? (
             <>
-              <div className="border-l-4 border-cyan-400 pl-2">
-                <p className="text-white text-sm">You:</p>
-                <p className="text-cyan-300 text-base">{playerText}</p>
-              </div>
+              {playerText && (
+                <div className="border-l-4 border-cyan-400 pl-2 animate-fade-in">
+                  <p className="text-white text-sm">You:</p>
+                  <p className="text-cyan-300 text-base">{playerText}</p>
+                </div>
+              )}
               {tessaText && (
-                <div className="border-l-4 border-rose-400 pl-2">
+                <div className="border-l-4 border-rose-400 pl-2 animate-fade-in">
                   <p className="text-white text-sm">Tessa:</p>
                   <p className="text-rose-300 text-base italic">{tessaText}</p>
                 </div>
@@ -198,7 +224,7 @@ const GameScene = () => {
                   <button
                     key={choice.id}
                     onClick={() => handleChoiceSelection(choice, choice.nextSceneId)}
-                    className="w-full text-left p-2 rounded transition-all bg-black/40 hover:bg-cyan-800/30 border-l-4 border-transparent"
+                    className="w-full text-left p-2 rounded transition-all bg-black/40 hover:bg-cyan-800/30 border-l-4 border-transparent hover:border-cyan-500"
                   >
                     <span className="text-cyan-300 mr-2">
                       {String.fromCharCode(65 + index)})
