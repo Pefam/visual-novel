@@ -7,7 +7,7 @@ import { useChoices, type ChoiceType } from '../context/ChoiceContext';
 
 const MIN_IMAGE_HEIGHT = 300;
 const MIN_TEXT_HEIGHT = 200;
-const CHARACTER_SIZE_PERCENTAGE = 60;
+const INITIAL_BACKGROUND = '/images/scenes/plain-bg.png';
 
 type ChoiceScene = typeof choiceScenes[keyof typeof choiceScenes];
 
@@ -17,25 +17,25 @@ const GameScene = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [playerText, setPlayerText] = useState('');
   const [tessaText, setTessaText] = useState('');
-  const [currentPose, setCurrentPose] = useState(introSequence[0].pose);
+  const [currentScene, setCurrentScene] = useState(INITIAL_BACKGROUND);
   const [isAnimating, setIsAnimating] = useState(false);
   const [currentChoiceScene, setCurrentChoiceScene] = useState<ChoiceScene>(choiceScenes.firstChoice);
   const [endingText, setEndingText] = useState('');
 
-  // Image preloading
   useEffect(() => {
-    const allScenes = [
-      ...introSequence,
+    const preloadImages = [
+      INITIAL_BACKGROUND,
+      ...introSequence.map(scene => scene.scene),
       ...Object.values(choiceScenes)
+        .filter(scene => !scene.isEnding)
+        .map(scene => scene.scene),
+      ...Array.from({ length: 5 }, (_, i) => `/images/scenes/ending${i + 1}.png`)
     ];
-    
-    allScenes.forEach(scene => {
+
+    preloadImages.forEach(src => {
       const img = document.createElement('img');
-      img.src = scene.pose;
+      img.src = src;
     });
-    
-    const bgImg = document.createElement('img');
-    bgImg.src = '/images/backgrounds/house-front.png';
   }, []);
 
   const animateText = useCallback(async (text: string, setText: React.Dispatch<React.SetStateAction<string>>) => {
@@ -53,88 +53,68 @@ const GameScene = () => {
 
   const determineEnding = (choices: ChoiceType[]): { text: string, number: number } => {
     const choiceIds = choices.map(c => c.id);
-    //console.log('[DEBUG] All choice IDs:', choiceIds);
     
-    // Ending 1: 1A-2A-3A
-    const ending1Condition = 
-      choiceIds.includes('1A') && 
-      choiceIds.includes('2A') && 
-      choiceIds.includes('3A');
-    //console.log('[DEBUG] Ending 1 check (1A-2A-3A):', ending1Condition);
-    if (ending1Condition) return { text: "I guess you should go now.", number:1};
-  
-    // Ending 5: 1C-2C-3C
-    const ending5Condition = 
-      choiceIds.includes('1C') && 
-      choiceIds.includes('2C') && 
-      choiceIds.includes('3C');
-    //console.log('[DEBUG] Ending 5 check (1C-2C-3C):', ending5Condition);
-    if (ending5Condition) return { text: "Sometimes I feel like I'm invisible at home... like they wouldn't even notice if I disappeared.", number:5};
-  
-    // Ending 2: (1A|1B) + (2A|2B) + (3A|3B) but not 1A-2A-3A
-    const ending2Base = 
-      (choiceIds.includes('1A') || choiceIds.includes('1B')) &&
+    if (choiceIds.includes('1A') && choiceIds.includes('2A') && choiceIds.includes('3A')) 
+      return { text: "I guess you should go now.", number: 1 };
+    if (choiceIds.includes('1C') && choiceIds.includes('2C') && choiceIds.includes('3C')) 
+      return { text: "Sometimes I feel like I'm invisible at home... like they wouldn't even notice if I disappeared.", number: 5 };
+    
+    const ending2Base = (choiceIds.includes('1A') || choiceIds.includes('1B')) &&
       (choiceIds.includes('2A') || choiceIds.includes('2B')) &&
       (choiceIds.includes('3A') || choiceIds.includes('3B'));
-    const ending2Exclusion = 
-      !(choiceIds.includes('1A') && choiceIds.includes('2A') && choiceIds.includes('3A'));
-    const ending2Condition = ending2Base && ending2Exclusion;
-    /*console.log(
-      '[DEBUG] Ending 2 check - Base:', ending2Base,
-      'Exclusion:', ending2Exclusion,
-      'Total:', ending2Condition
-    );*/
-    if (ending2Condition) return { text: "Yeah, it never changes.", number:2};
-  
-    // Ending 4: (1B|1C) + (2B|2C) + (3B|3C) but not 1C-2C-3C
-    const ending4Base = 
-      (choiceIds.includes('1B') || choiceIds.includes('1C')) &&
+    const ending2Exclusion = !(choiceIds.includes('1A') && choiceIds.includes('2A') && choiceIds.includes('3A'));
+    if (ending2Base && ending2Exclusion) return { text: "Yeah, it never changes.", number: 2 };
+    
+    const ending4Base = (choiceIds.includes('1B') || choiceIds.includes('1C')) &&
       (choiceIds.includes('2B') || choiceIds.includes('2C')) &&
       (choiceIds.includes('3B') || choiceIds.includes('3C'));
-    const ending4Exclusion = 
-      !(choiceIds.includes('1C') && choiceIds.includes('2C') && choiceIds.includes('3C'));
-    const ending4Condition = ending4Base && ending4Exclusion;
-    /*console.log(
-      '[DEBUG] Ending 4 check - Base:', ending4Base,
-      'Exclusion:', ending4Exclusion,
-      'Total:', ending4Condition
-    );*/
-    if (ending4Condition) return { text: "Thanks... no one ever really listens.", number:4};
-  
-    // Ending 3: Default
-    //console.log('[DEBUG] No specific ending matched, falling back to Ending 3');
-    return { text: "Well, I guess that's it, then.", number:3};
+    const ending4Exclusion = !(choiceIds.includes('1C') && choiceIds.includes('2C') && choiceIds.includes('3C'));
+    if (ending4Base && ending4Exclusion) return { text: "Thanks... no one ever really listens.", number: 4 };
+    
+    return { text: "Well, I guess that's it, then.", number: 3 };
   };
 
-const handleChoiceSelection = (
-  choice: { id: string; type: 'A' | 'B' | 'C' }, 
-  nextSceneId: string
-) => {
-  // Create temporary updated choices array
-  const updatedChoices = [...choices, { id: choice.id, type: choice.type }];
-  
-  // Update context state
-  addChoice({ id: choice.id, type: choice.type });
+  const handleChoiceSelection = (
+    choice: { id: string; type: 'A' | 'B' | 'C' }, 
+    nextSceneId: string
+  ) => {
+    const updatedChoices = [...choices, { id: choice.id, type: choice.type }];
+    addChoice({ id: choice.id, type: choice.type });
 
-  const nextScene = choiceScenes[nextSceneId];
-  if (!nextScene) return;
+    const nextScene = choiceScenes[nextSceneId];
+    if (!nextScene) return;
 
-  if (nextScene.isEnding) {
-    // Use the temporary updated choices array
-    const final = determineEnding(updatedChoices);
-    setEndingText(final.text);
-    setPhase('ending');
-    setCurrentPose(`/images/characters/tessa/ending${final.number}.png`);
-  } else {
-    setCurrentChoiceScene(nextScene);
-    setCurrentPose(nextScene.pose);
-  }
-};
+    if (nextScene.isEnding) {
+      const final = determineEnding(updatedChoices);
+      setEndingText(final.text);
+      setPhase('ending');
+      setCurrentScene(`/images/scenes/ending${final.number}.png`);
+    } else {
+      setCurrentChoiceScene(nextScene);
+      setCurrentScene(nextScene.scene);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
     
     const runSequence = async () => {
+      if (currentStep === 0) {
+        const waitForStart = () => new Promise<void>(resolve => {
+          const handler = (e: KeyboardEvent | MouseEvent) => {
+            if (e instanceof KeyboardEvent && e.code !== 'Space') return;
+            window.removeEventListener('click', handler);
+            window.removeEventListener('keydown', handler);
+            resolve();
+          };
+          window.addEventListener('click', handler);
+          window.addEventListener('keydown', handler);
+        });
+        
+        await waitForStart();
+        setCurrentScene(introSequence[0].scene);
+      }
+
       if (currentStep > 0) {
         setPlayerText('');
         setTessaText('');
@@ -157,7 +137,7 @@ const handleChoiceSelection = (
       
       if (!isMounted) return;
       
-      setCurrentPose(introSequence[currentStep].pose);
+      setCurrentScene(introSequence[currentStep].scene);
       await animateText(introSequence[currentStep].tessaText, setTessaText);
       
       await waitForContinue();
@@ -167,7 +147,7 @@ const handleChoiceSelection = (
           setCurrentStep(prev => prev + 1);
         } else {
           setPhase('choices');
-          setCurrentPose(choiceScenes.firstChoice.pose);
+          setCurrentScene(choiceScenes.firstChoice.scene);
         }
       }
     };
@@ -177,62 +157,22 @@ const handleChoiceSelection = (
   }, [currentStep]);
 
   return (
-    <div className="relative h-screen w-full flex flex-col overflow-hidden">
-      {/* Image Container */}
-      <div 
-        className="relative"
-        style={{
-          height: `clamp(${MIN_IMAGE_HEIGHT}px, 65vh, calc(100vh - ${MIN_TEXT_HEIGHT}px))`,
-          minHeight: MIN_IMAGE_HEIGHT
-        }}
-      >
-        <div 
-          className="relative h-full mx-auto bg-black/20"
-          style={{
-            aspectRatio: '3/4',
-            maxWidth: 'min(90vw, 1200px)'
-          }}
-        >
-          {/* Background Image */}
-          <div className="absolute inset-0 h-full w-full">
-            <Image
-              src="/images/backgrounds/house-front.png"
-              alt="Background"
-              layout="fill"
-              objectFit="contain"
-              className="object-left-bottom"
-              priority
-            />
-          </div>
-          
-          {/* Character Image */}
-          <div 
-            className="absolute bottom-0 left-1/2 origin-bottom"
-            style={{
-              width: `${CHARACTER_SIZE_PERCENTAGE}%`,
-              height: '85%',
-              transform: `translateX(-50%)`
-            }}
-          >
-            <Image
-              src={currentPose}
-              alt="Tessa"
-              layout="fill"
-              objectFit="contain"
-              className="object-bottom"
-            />
-          </div>
-        </div>
+    <div className="relative h-screen w-full flex flex-col">
+    {/* Image Container */}
+    <div className="relative w-full flex-1 min-h-[300px]">
+      <div className="relative h-full max-w-4xl mx-auto">
+        <Image
+          src={currentScene}
+          alt="Scene"
+          layout="fill"
+          objectFit="contain"
+          className="object-center"
+          priority
+        />
       </div>
+    </div>
 
-      {/* Text Container */}
-      <div 
-        className="bg-black/80 p-4 overflow-y-auto"
-        style={{
-          height: `calc(100vh - clamp(${MIN_IMAGE_HEIGHT}px, 65vh, calc(100vh - ${MIN_TEXT_HEIGHT}px)))`,
-          minHeight: MIN_TEXT_HEIGHT
-        }}
-      >
+    <div className="bg-black/80 p-4 overflow-y-auto flex-shrink-0 min-h-[200px]">
         <div className="max-w-2xl mx-auto space-y-2">
           {phase === 'intro' ? (
             <>
