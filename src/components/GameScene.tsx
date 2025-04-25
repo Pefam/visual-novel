@@ -103,6 +103,7 @@ const GameScene = () => {
     let isMounted = true;
     
     const runSequence = async () => {
+
       // Initial knock sequence
       if (currentStep === 0) {
         // First knock
@@ -120,6 +121,7 @@ const GameScene = () => {
         // Wait for user to continue
         await waitForContinue();
         setPlayerText('');
+        setCurrentScene('/images/scenes/door-open-empty.png');
     
         // Door opening
         playSound(2);
@@ -181,7 +183,7 @@ const GameScene = () => {
 
   return (
     <div className="relative h-screen w-full flex flex-col bg-gray-900">
-      {/* Image Container */}
+      {/* Image Container - No changes here */}
       <div className="relative w-full flex-1 min-h-[300px]">
         <div className="relative h-full max-w-4xl mx-auto">
           <Image
@@ -195,26 +197,34 @@ const GameScene = () => {
         </div>
       </div>
 
-      {/* Text Container */}
-      <div className="bg-black/80 p-4 overflow-y-auto flex-shrink-0 min-h-[200px]">
-        <div className="max-w-2xl mx-auto space-y-2">
+      {/* Fixed-height Text Container - Critical changes here */}
+      <div 
+        className="bg-black/80 p-4 flex-shrink-0"
+        style={{
+          height: '40vh',
+          minHeight: '250px'
+        }}
+      >
+        <div className="max-w-2xl mx-auto h-full flex flex-col justify-between">
           {phase === 'intro' ? (
             <>
               {playerText && (
-                <div className="border-l-4 border-cyan-400 pl-2 animate-fade-in">
+                <div className="border-l-4 border-cyan-400 pl-2">
                   <p className="text-white text-sm">You:</p>
                   <p className="text-cyan-300 text-base">{playerText}</p>
                 </div>
               )}
               {tessaText && (
-                <div className="border-l-4 border-rose-400 pl-2 animate-fade-in">
+                <div className="border-l-4 border-rose-400 pl-2">
                   <p className="text-white text-sm">Tessa:</p>
                   <p className="text-rose-300 text-base italic">{tessaText}</p>
                 </div>
               )}
+              {/* Spacer to maintain height */}
+              {!tessaText && <div className="flex-1" />}
             </>
           ) : phase === 'choices' ? (
-            <>
+            <div className="h-full flex flex-col justify-between">
               <div className="border-l-4 border-rose-400 pl-2">
                 <p className="text-white text-sm">Tessa:</p>
                 <p className="text-rose-300 text-base italic">{currentChoiceScene.tessaText}</p>
@@ -233,9 +243,9 @@ const GameScene = () => {
                   </button>
                 ))}
               </div>
-            </>
+            </div>
           ) : (
-            <div className="space-y-4">
+            <div className="h-full flex flex-col justify-between">
               <div className="border-l-4 border-rose-400 pl-2">
                 <p className="text-white text-sm">Tessa:</p>
                 <p className="text-rose-300 text-base italic">{endingText}</p>
