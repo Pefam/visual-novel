@@ -232,6 +232,7 @@ const GameScene = () => {
             objectFit="contain"
             className="object-center transition-opacity duration-500"
             priority
+            unoptimized
           />
         </div>
       </div>
