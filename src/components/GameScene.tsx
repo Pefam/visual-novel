@@ -26,10 +26,10 @@ const GameScene = () => {
   const [currentChoiceScene, setCurrentChoiceScene] = useState<ChoiceScene>(choiceScenes.firstChoice);
   const [endingText, setEndingText] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [animatedTessaText, setAnimatedTessaText] = useState('');
 
   const playSound = useCallback((soundIndex: number) => {
     return new Promise<void>((resolve) => {
-      // Stop any currently playing sound
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -43,7 +43,7 @@ const GameScene = () => {
       if (playPromise !== undefined) {
         playPromise.catch(e => {
           console.error("Sound play failed:", e);
-          resolve(); // Resolve even if play fails
+          resolve();
         });
       }
       
@@ -103,14 +103,23 @@ const GameScene = () => {
     const nextScene = choiceScenes[nextSceneId];
     if (!nextScene) return;
 
+    // Clear previous animated text immediately
+    setAnimatedTessaText('');
+    
     if (nextScene.isEnding) {
       const final = determineEnding(updatedChoices);
       setEndingText(final.text);
       setPhase('ending');
       setCurrentScene(`/images/scenes/ending${final.number}.png`);
+      
+      // Animate ending text
+      animateText(final.text, setAnimatedTessaText);
     } else {
       setCurrentChoiceScene(nextScene);
       setCurrentScene(nextScene.scene);
+      
+      // Animate Tessa's response
+      animateText(nextScene.tessaText, setAnimatedTessaText);
     }
   };
 
@@ -141,14 +150,14 @@ const GameScene = () => {
       if (currentStep === 0) {
         // First knock
         await animateText("Knock, knock knock...", setPlayerText, 50);
-        await playSound(0); // Wait for sound to finish
+        await playSound(0);
         await waitForContinue();
         if (!isMounted) return;
         setPlayerText('');
     
         // Second knock
         await animateText("Knock, knock knock...", setPlayerText, 50);
-        await playSound(1); // Wait for sound to finish
+        await playSound(1);
         await waitForContinue();
         if (!isMounted) return;
         setPlayerText('');
@@ -156,7 +165,7 @@ const GameScene = () => {
     
         // Door opening
         await animateText("*Door opens*", setPlayerText, 50);
-        await playSound(2); // Wait for sound to finish
+        await playSound(2);
         await waitForContinue();
         if (!isMounted) return;
         setPlayerText('');
@@ -190,6 +199,9 @@ const GameScene = () => {
         } else {
           setPhase('choices');
           setCurrentScene(choiceScenes.firstChoice.scene);
+          
+          // Animate first choice scene text
+          animateText(choiceScenes.firstChoice.tessaText, setAnimatedTessaText);
         }
       }
     };
@@ -235,7 +247,7 @@ const GameScene = () => {
           minHeight: '250px'
         }}
       >
-        <div className="max-w-2xl mx-auto h-full flex flex-col justify-between">
+        <div className="max-w-2xl mx-auto h-full flex flex-col">
           {phase === 'start' ? (
             <div className="h-full flex flex-col items-center justify-center">
               <button
@@ -266,38 +278,57 @@ const GameScene = () => {
               </div>
             </div>
           ) : phase === 'choices' ? (
-            <div className="h-full flex flex-col justify-between">
-              <div className="border-l-4 border-rose-400 pl-2">
-                <p className="text-white text-sm">Tessa:</p>
-                <p className="text-rose-300 text-base italic">{currentChoiceScene.tessaText}</p>
+            <div className="h-full flex flex-col">
+              <div className="flex-grow-0">
+                <div className="border-l-4 border-rose-400 pl-2">
+                  <p className="text-white text-sm">Tessa:</p>
+                  <p className="text-rose-300 text-base italic">
+                    {animatedTessaText}
+                    {isAnimating && <span className="ml-1 inline-block animate-pulse">|</span>}
+                  </p>
+                </div>
+                
+                {/* Choices container - positioned immediately below text */}
+                {!isAnimating && (
+                  <div className="mt-4 space-y-2">
+                    {currentChoiceScene.choices?.map((choice, index) => (
+                      <button
+                        key={choice.id}
+                        onClick={() => handleChoiceSelection(choice, choice.nextSceneId)}
+                        className="w-full text-left p-2 rounded transition-all bg-black/40 hover:bg-cyan-800/30 border-l-4 border-transparent hover:border-cyan-500"
+                      >
+                        <span className="text-cyan-300 mr-2">
+                          {String.fromCharCode(65 + index)})
+                        </span>
+                        {choice.text}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                {currentChoiceScene.choices?.map((choice, index) => (
-                  <button
-                    key={choice.id}
-                    onClick={() => handleChoiceSelection(choice, choice.nextSceneId)}
-                    className="w-full text-left p-2 rounded transition-all bg-black/40 hover:bg-cyan-800/30 border-l-4 border-transparent hover:border-cyan-500"
-                  >
-                    <span className="text-cyan-300 mr-2">
-                      {String.fromCharCode(65 + index)})
-                    </span>
-                    {choice.text}
-                  </button>
-                ))}
-              </div>
+              
+              {/* Spacer to push content up */}
+              <div className="flex-grow"></div>
             </div>
           ) : (
             <div className="h-full flex flex-col justify-between">
               <div className="border-l-4 border-rose-400 pl-2">
                 <p className="text-white text-sm">Tessa:</p>
-                <p className="text-rose-300 text-base italic">{endingText}</p>
+                <p className="text-rose-300 text-base italic">
+                  {animatedTessaText}
+                  {isAnimating && <span className="ml-1 inline-block animate-pulse">|</span>}
+                </p>
               </div>
-              <button
-                className="w-full p-3 bg-cyan-600 hover:bg-cyan-700 rounded transition-colors text-white font-bold"
-                onClick={() => window.location.reload()}
-              >
-                Play Again
-              </button>
+              
+              {/* Play Again button - only visible when not animating */}
+              {!isAnimating && (
+                <button
+                  className="w-full p-3 bg-cyan-600 hover:bg-cyan-700 rounded transition-colors text-white font-bold mt-4"
+                  onClick={() => window.location.reload()}
+                >
+                  Play Again
+                </button>
+              )}
             </div>
           )}
         </div>
