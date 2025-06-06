@@ -5,7 +5,6 @@ import { introSequence } from '../data/introScene';
 import { choiceScenes } from '../data/choiceScenes';
 import { useChoices, type ChoiceType } from '../context/ChoiceContext';
 
-const MIN_IMAGE_HEIGHT = 300;
 const INITIAL_BACKGROUND = '/images/scenes/plain-bg.png';
 const KNOCK_SOUNDS = [
   '/sounds/knock1.mp3',
@@ -24,7 +23,6 @@ const GameScene = () => {
   const [currentScene, setCurrentScene] = useState(INITIAL_BACKGROUND);
   const [isAnimating, setIsAnimating] = useState(false);
   const [currentChoiceScene, setCurrentChoiceScene] = useState<ChoiceScene>(choiceScenes.firstChoice);
-  const [endingText, setEndingText] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [animatedTessaText, setAnimatedTessaText] = useState('');
 
@@ -108,7 +106,6 @@ const GameScene = () => {
     
     if (nextScene.isEnding) {
       const final = determineEnding(updatedChoices);
-      setEndingText(final.text);
       setPhase('ending');
       setCurrentScene(`/images/scenes/ending${final.number}.png`);
       
