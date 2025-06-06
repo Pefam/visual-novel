@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #000000; /* Changed to black */
+  --foreground: #ffffff; /* Changed to white */
+  --choices-bg: #1a1a1a; /* New variable for choices */
 }
 
 @theme inline {
@@ -12,17 +13,22 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Add this new class for choice buttons */
+.choice-button {
+  background-color: var(--choices-bg);
+  color: white;
+  border-left: 4px solid rgb(13, 148, 136); /* cyan-600 */
+}
+
+.choice-button:hover {
+  background-color: #164e63; /* cyan-900 */
+  border-left-color: rgb(8, 145, 178); /* cyan-500 */
 }
 
 @keyframes fade-in {

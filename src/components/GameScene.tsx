@@ -101,21 +101,14 @@ const GameScene = () => {
     const nextScene = choiceScenes[nextSceneId];
     if (!nextScene) return;
 
-    // Clear previous animated text immediately
-    setAnimatedTessaText('');
-    
     if (nextScene.isEnding) {
       const final = determineEnding(updatedChoices);
       setPhase('ending');
       setCurrentScene(`/images/scenes/ending${final.number}.png`);
-      
-      // Animate ending text
       animateText(final.text, setAnimatedTessaText);
     } else {
       setCurrentChoiceScene(nextScene);
       setCurrentScene(nextScene.scene);
-      
-      // Animate Tessa's response
       animateText(nextScene.tessaText, setAnimatedTessaText);
     }
   };
@@ -143,16 +136,13 @@ const GameScene = () => {
     const runSequence = async () => {
       if (phase !== 'intro') return;
 
-      // Initial knock sequence
       if (currentStep === 0) {
-        // First knock
         await animateText("Knock, knock knock...", setPlayerText, 50);
         await playSound(0);
         await waitForContinue();
         if (!isMounted) return;
         setPlayerText('');
     
-        // Second knock
         await animateText("Knock, knock knock...", setPlayerText, 50);
         await playSound(1);
         await waitForContinue();
@@ -160,34 +150,26 @@ const GameScene = () => {
         setPlayerText('');
         setCurrentScene('/images/scenes/door-open-empty.png');
     
-        // Door opening
         await animateText("*Door opens*", setPlayerText, 50);
         await playSound(2);
         await waitForContinue();
         if (!isMounted) return;
         setPlayerText('');
         
-        // Transition to first scene
         setCurrentScene(introSequence[0].scene);
         setCurrentStep(1);
       }
 
-      // Main dialogue sequence
       if (currentStep > 0) {
         const sceneIndex = currentStep - 1;
         const scene = introSequence[sceneIndex];
 
-        // Animate player text
         await animateText(scene.playerText, setPlayerText);
-        
-        // Wait for user to continue
         await waitForContinue();
         if (!isMounted) return;
         
-        // Update scene and animate Tessa's response
         setCurrentScene(scene.scene);
         await animateText(scene.tessaText, setTessaText);
-        
         await waitForContinue();
         if (!isMounted) return;
         
@@ -196,8 +178,6 @@ const GameScene = () => {
         } else {
           setPhase('choices');
           setCurrentScene(choiceScenes.firstChoice.scene);
-          
-          // Animate first choice scene text
           animateText(choiceScenes.firstChoice.tessaText, setAnimatedTessaText);
         }
       }
@@ -221,9 +201,9 @@ const GameScene = () => {
   }, []);
 
   return (
-    <div className="relative h-screen w-full flex flex-col bg-black/80">
+    <div className="relative h-screen w-full flex flex-col bg-black">
       {/* Image Container */}
-      <div className="relative w-full flex-1 min-h-[300px]">
+      <div className="relative w-full flex-1 min-h-[300px] bg-black">
         <div className="relative h-full max-w-4xl mx-auto">
           <Image
             src={currentScene}
@@ -239,7 +219,7 @@ const GameScene = () => {
 
       {/* Text Container */}
       <div 
-        className="bg-black/80 p-4 flex-shrink-0"
+        className="bg-black p-4 flex-shrink-0"
         style={{
           height: '40vh',
           minHeight: '250px'
@@ -286,16 +266,15 @@ const GameScene = () => {
                   </p>
                 </div>
                 
-                {/* Choices container - positioned immediately below text */}
                 {!isAnimating && (
                   <div className="mt-4 space-y-2">
                     {currentChoiceScene.choices?.map((choice, index) => (
                       <button
                         key={choice.id}
                         onClick={() => handleChoiceSelection(choice, choice.nextSceneId)}
-                        className="w-full text-left p-2 rounded transition-all bg-black/40 hover:bg-cyan-800/30 border-l-4 border-transparent hover:border-cyan-500"
+                        className="w-full text-left p-2 rounded transition-all bg-gray-900 hover:bg-cyan-900 border-l-4 border-cyan-600 text-white"
                       >
-                        <span className="text-cyan-300 mr-2">
+                        <span className="text-cyan-300 font-bold mr-2">
                           {String.fromCharCode(65 + index)})
                         </span>
                         {choice.text}
@@ -304,8 +283,6 @@ const GameScene = () => {
                   </div>
                 )}
               </div>
-              
-              {/* Spacer to push content up */}
               <div className="flex-grow"></div>
             </div>
           ) : (
@@ -318,7 +295,6 @@ const GameScene = () => {
                 </p>
               </div>
               
-              {/* Play Again button - only visible when not animating */}
               {!isAnimating && (
                 <button
                   className="w-full p-3 bg-cyan-600 hover:bg-cyan-700 rounded transition-colors text-white font-bold mt-4"
