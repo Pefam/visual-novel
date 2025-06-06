@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { introSequence } from '../data/introScene';
 import { choiceScenes } from '../data/choiceScenes';
@@ -17,7 +17,7 @@ type ChoiceScene = typeof choiceScenes[keyof typeof choiceScenes];
 
 const GameScene = () => {
   const { choices, addChoice } = useChoices();
-  const [phase, setPhase] = useState<'intro' | 'choices' | 'ending'>('intro');
+  const [phase, setPhase] = useState<'start' | 'intro' | 'choices' | 'ending'>('start');
   const [currentStep, setCurrentStep] = useState(0);
   const [playerText, setPlayerText] = useState('');
   const [tessaText, setTessaText] = useState('');
@@ -25,10 +25,36 @@ const GameScene = () => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [currentChoiceScene, setCurrentChoiceScene] = useState<ChoiceScene>(choiceScenes.firstChoice);
   const [endingText, setEndingText] = useState('');
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const playSound = useCallback((soundIndex: number) => {
-    const audio = new Audio(KNOCK_SOUNDS[soundIndex]);
-    audio.play();
+    return new Promise<void>((resolve) => {
+      // Stop any currently playing sound
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+
+      const audio = new Audio(KNOCK_SOUNDS[soundIndex]);
+      audioRef.current = audio;
+      
+      const playPromise = audio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.catch(e => {
+          console.error("Sound play failed:", e);
+          resolve(); // Resolve even if play fails
+        });
+      }
+      
+      const onEnd = () => {
+        audio.removeEventListener('ended', onEnd);
+        audioRef.current = null;
+        resolve();
+      };
+      
+      audio.addEventListener('ended', onEnd);
+    });
   }, []);
 
   const animateText = useCallback(async (text: string, setText: React.Dispatch<React.SetStateAction<string>>, delay = 100) => {
@@ -88,7 +114,7 @@ const GameScene = () => {
     }
   };
 
-  const waitForContinue = () => new Promise<void>(resolve => {
+  const waitForContinue = useCallback(() => new Promise<void>(resolve => {
     const handler = (e: KeyboardEvent | MouseEvent) => {
       if (e instanceof KeyboardEvent && e.code !== 'Space') return;
       window.removeEventListener('click', handler);
@@ -97,38 +123,42 @@ const GameScene = () => {
     };
     window.addEventListener('click', handler);
     window.addEventListener('keydown', handler);
-  });
+  }), []);
 
+  const startGame = () => {
+    setPhase('intro');
+    setCurrentStep(0);
+  };
+
+  // Run the intro sequence when phase changes to 'intro'
   useEffect(() => {
     let isMounted = true;
     
     const runSequence = async () => {
+      if (phase !== 'intro') return;
 
       // Initial knock sequence
       if (currentStep === 0) {
         // First knock
-        playSound(0);
         await animateText("Knock, knock knock...", setPlayerText, 50);
-        
-        // Wait for user to continue
+        await playSound(0); // Wait for sound to finish
         await waitForContinue();
+        if (!isMounted) return;
         setPlayerText('');
     
         // Second knock
-        playSound(1);
         await animateText("Knock, knock knock...", setPlayerText, 50);
-        
-        // Wait for user to continue
+        await playSound(1); // Wait for sound to finish
         await waitForContinue();
+        if (!isMounted) return;
         setPlayerText('');
         setCurrentScene('/images/scenes/door-open-empty.png');
     
         // Door opening
-        playSound(2);
         await animateText("*Door opens*", setPlayerText, 50);
-        
-        // Wait for user to continue
+        await playSound(2); // Wait for sound to finish
         await waitForContinue();
+        if (!isMounted) return;
         setPlayerText('');
         
         // Transition to first scene
@@ -145,19 +175,7 @@ const GameScene = () => {
         await animateText(scene.playerText, setPlayerText);
         
         // Wait for user to continue
-        const waitForContinue = () => new Promise<void>(resolve => {
-          const handler = (e: KeyboardEvent | MouseEvent) => {
-            if (e instanceof KeyboardEvent && e.code !== 'Space') return;
-            window.removeEventListener('click', handler);
-            window.removeEventListener('keydown', handler);
-            resolve();
-          };
-          window.addEventListener('click', handler);
-          window.addEventListener('keydown', handler);
-        });
-        
         await waitForContinue();
-        
         if (!isMounted) return;
         
         // Update scene and animate Tessa's response
@@ -165,25 +183,37 @@ const GameScene = () => {
         await animateText(scene.tessaText, setTessaText);
         
         await waitForContinue();
+        if (!isMounted) return;
         
-        if (isMounted) {
-          if (currentStep < introSequence.length) {
-            setCurrentStep(prev => prev + 1);
-          } else {
-            setPhase('choices');
-            setCurrentScene(choiceScenes.firstChoice.scene);
-          }
+        if (currentStep < introSequence.length) {
+          setCurrentStep(prev => prev + 1);
+        } else {
+          setPhase('choices');
+          setCurrentScene(choiceScenes.firstChoice.scene);
         }
       }
     };
 
     runSequence();
-    return () => { isMounted = false; };
-  }, [currentStep]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [phase, currentStep, animateText, playSound, waitForContinue]);
+
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   return (
-    <div className="relative h-screen w-full flex flex-col bg-gray-900">
-      {/* Image Container - No changes here */}
+    <div className="relative h-screen w-full flex flex-col bg-black/80">
+      {/* Image Container */}
       <div className="relative w-full flex-1 min-h-[300px]">
         <div className="relative h-full max-w-4xl mx-auto">
           <Image
@@ -197,7 +227,7 @@ const GameScene = () => {
         </div>
       </div>
 
-      {/* Fixed-height Text Container - Critical changes here */}
+      {/* Text Container */}
       <div 
         className="bg-black/80 p-4 flex-shrink-0"
         style={{
@@ -206,23 +236,35 @@ const GameScene = () => {
         }}
       >
         <div className="max-w-2xl mx-auto h-full flex flex-col justify-between">
-          {phase === 'intro' ? (
-            <>
-              {playerText && (
-                <div className="border-l-4 border-cyan-400 pl-2">
-                  <p className="text-white text-sm">You:</p>
-                  <p className="text-cyan-300 text-base">{playerText}</p>
-                </div>
-              )}
-              {tessaText && (
-                <div className="border-l-4 border-rose-400 pl-2">
-                  <p className="text-white text-sm">Tessa:</p>
-                  <p className="text-rose-300 text-base italic">{tessaText}</p>
-                </div>
-              )}
-              {/* Spacer to maintain height */}
-              {!tessaText && <div className="flex-1" />}
-            </>
+          {phase === 'start' ? (
+            <div className="h-full flex flex-col items-center justify-center">
+              <button
+                onClick={startGame}
+                className="px-8 py-4 bg-cyan-600 hover:bg-cyan-700 rounded-lg text-white text-xl font-bold transition-all transform hover:scale-105"
+              >
+                Start Game
+              </button>
+              <p className="mt-4 text-gray-400 text-sm">
+                Click or press space to continue through dialogue
+              </p>
+            </div>
+          ) : phase === 'intro' ? (
+            <div className="h-full flex flex-col justify-start">
+              <div className="space-y-4">
+                {playerText && (
+                  <div className="border-l-4 border-cyan-400 pl-2">
+                    <p className="text-white text-sm">You:</p>
+                    <p className="text-cyan-300 text-base">{playerText}</p>
+                  </div>
+                )}
+                {tessaText && (
+                  <div className="border-l-4 border-rose-400 pl-2">
+                    <p className="text-white text-sm">Tessa:</p>
+                    <p className="text-rose-300 text-base italic">{tessaText}</p>
+                  </div>
+                )}
+              </div>
+            </div>
           ) : phase === 'choices' ? (
             <div className="h-full flex flex-col justify-between">
               <div className="border-l-4 border-rose-400 pl-2">
