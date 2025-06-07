@@ -1,11 +1,14 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Head from 'next/head';
 import Image from 'next/image';
 import { introSequence } from '../data/introScene';
 import { choiceScenes } from '../data/choiceScenes';
 import { useChoices, type ChoiceType } from '../context/ChoiceContext';
 
 const INITIAL_BACKGROUND = '/images/scenes/plain-bg.png';
+const DOOR_OPEN_EMPTY = '/images/scenes/door-open-empty.png';
+const MAX_ENDINGS = 5;
 const KNOCK_SOUNDS = [
   '/sounds/knock1.mp3',
   '/sounds/knock2.mp3',
@@ -26,6 +29,37 @@ const GameScene = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [animatedTessaText, setAnimatedTessaText] = useState('');
 
+  // Preload all scene images and sounds
+  useEffect(() => {
+    const imageUrls: string[] = [];
+
+    // initial and door
+    imageUrls.push(INITIAL_BACKGROUND, DOOR_OPEN_EMPTY);
+
+    // intro sequence scenes
+    introSequence.forEach(item => imageUrls.push(item.scene));
+
+    // choice scenes
+    Object.values(choiceScenes).forEach(scene => imageUrls.push(scene.scene));
+
+    // endings
+    for (let i = 1; i <= MAX_ENDINGS; i++) {
+      imageUrls.push(`/images/scenes/ending${i}.png`);
+    }
+
+    imageUrls.forEach(src => {
+      const img = new window.Image();
+      img.src = src;
+    });
+
+    // Preload sounds
+    KNOCK_SOUNDS.forEach(src => {
+      const audio = new Audio(src);
+      audio.preload = 'auto';
+    });
+  }, []);
+
+  // Play sound utility
   const playSound = useCallback((soundIndex: number) => {
     return new Promise<void>((resolve) => {
       if (audioRef.current) {
@@ -35,23 +69,14 @@ const GameScene = () => {
 
       const audio = new Audio(KNOCK_SOUNDS[soundIndex]);
       audioRef.current = audio;
-      
       const playPromise = audio.play();
-      
       if (playPromise !== undefined) {
-        playPromise.catch(e => {
-          console.error("Sound play failed:", e);
-          resolve();
-        });
+        playPromise.catch(() => resolve());
       }
-      
-      const onEnd = () => {
-        audio.removeEventListener('ended', onEnd);
+      audio.addEventListener('ended', () => {
         audioRef.current = null;
         resolve();
-      };
-      
-      audio.addEventListener('ended', onEnd);
+      });
     });
   }, []);
 
@@ -200,7 +225,15 @@ const GameScene = () => {
     };
   }, []);
 
-  return (
+ return (
+    <>
+      <Head>
+        {/* Optionally add <link rel='preload'> tags for critical images */}
+        {Array.from(new Set([INITIAL_BACKGROUND, DOOR_OPEN_EMPTY, ...introSequence.map(i => i.scene), ...Object.values(choiceScenes).map(c => c.scene), ...Array.from({ length: MAX_ENDINGS }, (_, i) => `/images/scenes/ending${i+1}.png`)])).map((href, idx) => (
+          <link key={idx} rel="preload" as="image" href={href} />
+        ))}
+      </Head>
+      {/* ... rest of component JSX identical ... */}
     <div className="relative h-screen w-full flex flex-col bg-black">
       {/* Image Container */}
       <div className="relative w-full flex-1 min-h-[300px] bg-black">
@@ -308,6 +341,7 @@ const GameScene = () => {
         </div>
       </div>
     </div>
+     </>
   );
 };
 
